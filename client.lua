@@ -23,7 +23,6 @@ CreateThread(function()
                 -- Draw the marker at the zone's coordinates
                 DrawMarker(27, zone.coords.x, zone.coords.y, zone.coords.z - 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 255, 0, 0, 100, false, true, 2, false, false, false, false)
 
-                -- Optional: Check if the player is inside the zone to show the harvesting prompt
                 local playerCoords = GetEntityCoords(PlayerPedId())
                 local distance = #(playerCoords - vector3(zone.coords.x, zone.coords.y, zone.coords.z))
                 
@@ -33,7 +32,6 @@ CreateThread(function()
                         position = 'left-center'
                     })
 
-                    -- Trigger the harvest if the player presses E
                     if IsControlJustReleased(0, 38) and not isHarvesting then
                         StartHarvest(zone)
                     end
@@ -50,7 +48,8 @@ function StartHarvest(zone)
     if isHarvesting then return end
     isHarvesting = true
 
-    TriggerServerEvent('forcng:harvestStart', zone.id)
+    -- Changed from forcng → ghostdevelopments
+    TriggerServerEvent('ghostdevelopments:harvestStart', zone.id)
 
     lib.requestAnimDict('pickup_object')
     TaskPlayAnim(PlayerPedId(), 'pickup_object', 'pickup_low', 8.0, -8.0, -1, 49, 0, false, false, false)
@@ -69,7 +68,8 @@ function StartHarvest(zone)
     isHarvesting = false
 
     if success then
-        TriggerServerEvent('forcng:harvestDone', zone.id)
+        -- Changed from forcng → ghostdevelopments
+        TriggerServerEvent('ghostdevelopments:harvestDone', zone.id)
     else
         lib.notify({
             title = 'Cancelled',
