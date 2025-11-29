@@ -48,7 +48,7 @@ function StartHarvest(zone)
     if isHarvesting then return end
     isHarvesting = true
 
-    -- Changed from forcng → ghostdevelopments
+    
     TriggerServerEvent('ghostdevelopments:harvestStart', zone.id)
 
     lib.requestAnimDict('pickup_object')
@@ -68,7 +68,7 @@ function StartHarvest(zone)
     isHarvesting = false
 
     if success then
-        -- Changed from forcng → ghostdevelopments
+       
         TriggerServerEvent('ghostdevelopments:harvestDone', zone.id)
     else
         lib.notify({
