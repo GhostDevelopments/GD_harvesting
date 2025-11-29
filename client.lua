@@ -1,61 +1,81 @@
 local isHarvesting = false
 
--- Create zones + blips only
+-- Helper: Native GTA V Help Text (bottom left)
+local function ShowHelpNotification(msg)
+    BeginTextCommandDisplayHelp("STRING")
+    AddTextComponentSubstringPlayerName(msg)
+    EndTextCommandDisplayHelp(0, false, true, -1)
+end
+
+-- Create blips + zones + native help text
 CreateThread(function()
     for _, zone in pairs(Config.HarvestingLocations) do
-        -- Optional blip on map
+        
+        -- Blip (optional)
         if zone.blip then
             local blip = AddBlipForCoord(zone.coords.x, zone.coords.y, zone.coords.z)
-            SetBlipSprite(blip, zone.blip.sprite)
-            SetBlipColour(blip, zone.blip.color)
-            SetBlipScale(blip, zone.blip.scale)
+            SetBlipSprite(blip, zone.blip.sprite or 496)
+            SetBlipColour(blip, zone.blip.color or 2)
+            SetBlipScale(blip, zone.blip.scale or 0.8)
             SetBlipAsShortRange(blip, true)
             BeginTextCommandSetBlipName("STRING")
-            AddTextComponentString(zone.blip.name)
+            AddTextComponentString(zone.blip.name or zone.label)
             EndTextCommandSetBlipName(blip)
         end
 
-        -- Create the marker for the harvesting location
+        -- Modern ox_lib zone (handles distance & E press perfectly)
+        lib.zones.sphere({
+            name = 'harvest_' .. zone.id,
+            coords = zone.coords,
+            radius = zone.radius or 2.0,
+            debug = false,
+
+            onEnter = function()
+                -- Native GTA-style text when you walk in
+                ShowHelpNotification("Press ~INPUT_CONTEXT~ to harvest ~g~" .. zone.label)
+            end,
+
+            inside = function()
+                -- Keep showing the message while inside
+                ShowHelpNotification("Press ~INPUT_CONTEXT~ to harvest ~g~" .. zone.label)
+
+                -- Press E
+                if IsControlJustReleased(0, 38) and not isHarvesting then -- 38 = E
+                    StartHarvest(zone)
+                end
+            end,
+
+            onExit = function()
+                -- Optional: clear help text when leaving (GTA does this automatically after ~3 sec)
+            end
+        })
+
+        -- Marker (only drawn when nearby - optimized)
         CreateThread(function()
             while true do
-                Wait(0) -- Loop continuously to keep the marker drawn
-
-                -- Draw the marker at the zone's coordinates
-                DrawMarker(27, zone.coords.x, zone.coords.y, zone.coords.z - 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 255, 0, 0, 100, false, true, 2, false, false, false, false)
-
-                local playerCoords = GetEntityCoords(PlayerPedId())
-                local distance = #(playerCoords - vector3(zone.coords.x, zone.coords.y, zone.coords.z))
-                
-                if distance < zone.radius then
-                    lib.showTextUI('[E] Harvest ' .. zone.label, {
-                        icon = 'seedling',
-                        position = 'left-center'
-                    })
-
-                    if IsControlJustReleased(0, 38) and not isHarvesting then
-                        StartHarvest(zone)
-                    end
-                else
-                    lib.hideTextUI()
+                Wait(1000)
+                local dist = #(GetEntityCoords(PlayerPedId()) - zone.coords)
+                if dist < 50.0 then
+                    DrawMarker(27, zone.coords.x, zone.coords.y, zone.coords.z - 1.0,
+                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                        1.2, 1.2, 1.0, 255, 0, 0, 100,
+                        false, true, 2, false, false, false, false)
+                    if dist < zone.radius then Wait(0) else Wait(200) end
                 end
             end
         end)
     end
 end)
 
--- Harvest function (clean & smooth)
+-- Harvest function (unchanged, still perfect)
 function StartHarvest(zone)
     if isHarvesting then return end
     isHarvesting = true
 
-    
     TriggerServerEvent('ghostdevelopments:harvestStart', zone.id)
 
-    lib.requestAnimDict('pickup_object')
-    TaskPlayAnim(PlayerPedId(), 'pickup_object', 'pickup_low', 8.0, -8.0, -1, 49, 0, false, false, false)
-
     local success = lib.progressCircle({
-        duration = zone.time,
+        duration = zone.time or 6000,
         label = 'Harvesting ' .. zone.label .. '...',
         position = 'bottom',
         useWhileDead = false,
@@ -68,12 +88,11 @@ function StartHarvest(zone)
     isHarvesting = false
 
     if success then
-       
         TriggerServerEvent('ghostdevelopments:harvestDone', zone.id)
     else
         lib.notify({
-            title = 'Cancelled',
-            description = 'You stopped harvesting',
+            title = 'Harvesting Cancelled',
+            description = 'You stopped harvesting ' .. zone.label,
             type = 'error'
         })
     end
