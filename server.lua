@@ -1,16 +1,17 @@
 local active = {} -- [src] = {time = os.time(), zone = id}
 
--- Clear active data when player drops
+-- Clear active data when player drops/disconnects
 AddEventHandler('playerDropped', function()
-    active[source] = nil
+    local src = source
+    active[src] = nil
 end)
 
--- Start harvesting event
-RegisterNetEvent('forcng:harvestStart', function(zoneId)
+-- Player started harvesting
+RegisterNetEvent('ghostdevelopments:harvestStart', function(zoneId)
     local src = source
     local zone = nil
 
-    -- Find the zone by ID
+    -- Find the zone config by ID
     for _, z in pairs(Config.HarvestingLocations) do
         if z.id == zoneId then
             zone = z
@@ -18,27 +19,29 @@ RegisterNetEvent('forcng:harvestStart', function(zoneId)
         end
     end
 
-    -- If zone exists, track the harvest start
+    -- If zone exists, mark player as actively harvesting
     if zone then
         active[src] = { time = os.time(), zone = zoneId }
     end
 end)
 
--- Complete harvesting event
-RegisterNetEvent('forcng:harvestDone', function(zoneId)
+-- Player finished harvesting
+RegisterNetEvent('ghostdevelopments:harvestDone', function(zoneId)
     local src = source
     local data = active[src]
 
-    -- Anti-exploit check: ensure valid harvesting session
-    if not data or data.zone ~= zoneId or (os.time() - data.time) > 35 then
+    -- === Anti-exploit checks ===
+    if not data 
+    or data.zone ~= zoneId 
+    or (os.time() - data.time) > 35 then          -- adjust 35 if your harvest time is longer
         DropPlayer(src, 'Harvest exploit detected')
         return
     end
 
-    -- Clear the active harvest data for the player
+    -- Clear the active session
     active[src] = nil
 
-    -- Find the zone by ID to retrieve the item details
+    -- Find zone again to get item details
     local zone = nil
     for _, z in pairs(Config.HarvestingLocations) do
         if z.id == zoneId then
@@ -47,12 +50,11 @@ RegisterNetEvent('forcng:harvestDone', function(zoneId)
         end
     end
 
-    -- If zone is valid, grant harvested items to the player
+    -- Reward the player
     if zone then
         local amount = math.random(zone.min, zone.max)
         exports.ox_inventory:AddItem(src, zone.item, amount)
 
-        -- Notify the player of the successful harvest
         TriggerClientEvent('ox_lib:notify', src, {
             title = 'Harvested',
             description = ('+%d %s'):format(amount, zone.label),
